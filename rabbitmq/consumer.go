@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"framework/events"
+	"github.com/yhwhpe/agent-framework/events"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )

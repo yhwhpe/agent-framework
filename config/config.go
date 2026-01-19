@@ -14,11 +14,9 @@ type Config struct {
 	Port         string
 	Communicator CommunicatorConfig
 	RabbitMQ     RabbitMQConfig
-	Practice     PracticeConfig
 	Bot          BotConfig
 	Axima        AximaConfig
 	Mesa         MesaConfig
-	Hasura       HasuraConfig
 	LLM          LLMConfig
 	MinIO        MinIOConfig
 }
@@ -37,11 +35,6 @@ type RabbitMQConfig struct {
 	MaxRetries int
 }
 
-type PracticeConfig struct {
-	URL     string
-	APIKey  string
-	Timeout time.Duration
-}
 
 type BotConfig struct {
 	Key              string
@@ -60,11 +53,6 @@ type MesaConfig struct {
 	Timeout time.Duration
 }
 
-type HasuraConfig struct {
-	URL         string
-	AdminSecret string
-	Timeout     time.Duration
-}
 
 type LLMConfig struct {
 	Provider string
@@ -96,17 +84,6 @@ func Load() (*Config, error) {
 	prefetch := intFromEnv("RABBITMQ_PREFETCH", 1)
 	maxRetries := intFromEnv("RABBITMQ_MAX_RETRIES", 3)
 
-	aluraTimeoutStr := getenvDefault("ALURA_TIMEOUT", "30s")
-	aluraTimeout, err := time.ParseDuration(aluraTimeoutStr)
-	if err != nil {
-		return nil, fmt.Errorf("ALURA_TIMEOUT is invalid: %w", err)
-	}
-
-	practiceTimeoutStr := getenvDefault("PRACTICE_TIMEOUT", "30s")
-	practiceTimeout, err := time.ParseDuration(practiceTimeoutStr)
-	if err != nil {
-		return nil, fmt.Errorf("PRACTICE_TIMEOUT is invalid: %w", err)
-	}
 
 	llmTimeoutStr := getenvDefault("LLM_TIMEOUT", "60s")
 	llmTimeout, err := time.ParseDuration(llmTimeoutStr)
@@ -130,11 +107,6 @@ func Load() (*Config, error) {
 			Prefetch:   prefetch,
 			MaxRetries: maxRetries,
 		},
-		Practice: PracticeConfig{
-			URL:     os.Getenv("PRACTICE_URL"),
-			APIKey:  os.Getenv("PRACTICE_INTERNAL_API_KEY"),
-			Timeout: practiceTimeout,
-		},
 		Bot: BotConfig{
 			Key:              getenvDefault("BOT_KEY", "profile-builder"),
 			EventStream:      getenvDefault("BOT_EVENT_STREAM", "profile-builder-events"),
@@ -148,11 +120,6 @@ func Load() (*Config, error) {
 		Mesa: MesaConfig{
 			URL:     os.Getenv("MESA_URL"),
 			Timeout: 60 * time.Second, // Longer timeout for LLM operations
-		},
-		Hasura: HasuraConfig{
-			URL:         os.Getenv("HASURA_URL"),
-			AdminSecret: os.Getenv("HASURA_ADMIN_SECRET"),
-			Timeout:     aluraTimeout,
 		},
 		LLM: LLMConfig{
 			Provider: getenvDefault("LLM_PROVIDER", "deepseek"),
@@ -175,9 +142,6 @@ func Load() (*Config, error) {
 	}
 	if cfg.RabbitMQ.URL == "" {
 		return nil, errors.New("RABBITMQ_URL is required")
-	}
-	if cfg.Hasura.URL == "" {
-		return nil, errors.New("HASURA_URL is required")
 	}
 	if cfg.LLM.APIKey == "" {
 		return nil, errors.New("LLM_API_KEY is required")

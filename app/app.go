@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"framework/config"
-	"framework/events"
-	"framework/rabbitmq"
-	"framework/saga"
+	"github.com/yhwhpe/agent-framework/config"
+	"github.com/yhwhpe/agent-framework/events"
+	"github.com/yhwhpe/agent-framework/rabbitmq"
+	"github.com/yhwhpe/agent-framework/saga"
 )
 
 // EventHandler определяет интерфейс для обработки событий
