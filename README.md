@@ -75,6 +75,8 @@ type EventProcessor interface {
 
 ## Configuration
 
+The framework provides core configuration. Agents should extend this with their specific settings:
+
 ```env
 # Application
 PORT=8080
@@ -87,12 +89,18 @@ RABBITMQ_BINDINGS=cli.flow.my-agent
 RABBITMQ_PREFETCH=1
 RABBITMQ_MAX_RETRIES=3
 
-# MinIO for saga storage
+# MinIO for saga storage (optional)
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=my-agent-sagas
 MINIO_USE_SSL=false
+
+# Agent-specific configurations should be added by the agent
+# Examples:
+# PRACTICE_URL=http://localhost:8080
+# HASURA_URL=http://localhost:8080
+# PROFILE_FORM_TYPE=user
 ```
 
 ## Event Types
