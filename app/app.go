@@ -8,6 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+
 	"github.com/yhwhpe/agent-framework/config"
 	"github.com/yhwhpe/agent-framework/events"
 	"github.com/yhwhpe/agent-framework/rabbitmq"
@@ -34,8 +37,26 @@ func New(cfg *config.Config, handler EventHandler) (*App, error) {
 		return nil, errors.New("config is nil")
 	}
 
+	// Initialize MinIO client for saga logger
+	var minioClient *minio.Client
+	if cfg.MinIO.Endpoint != "" && cfg.MinIO.AccessKey != "" && cfg.MinIO.SecretKey != "" {
+		var err error
+		minioClient, err = minio.New(cfg.MinIO.Endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(cfg.MinIO.AccessKey, cfg.MinIO.SecretKey, ""),
+			Secure: cfg.MinIO.UseSSL,
+		})
+		if err != nil {
+			log.Printf("⚠️ [FRAMEWORK] Failed to initialize MinIO client: %v", err)
+			minioClient = nil
+		} else {
+			log.Printf("✅ [FRAMEWORK] MinIO client initialized")
+		}
+	} else {
+		log.Printf("⚠️ [FRAMEWORK] MinIO not configured, saga logging disabled")
+	}
+
 	// Initialize Saga Logger
-	sagaLogger := saga.NewMinIOSagaLogger(nil, cfg.MinIO.Bucket)
+	sagaLogger := saga.NewMinIOSagaLogger(minioClient, cfg.MinIO.Bucket)
 	log.Printf("✅ [FRAMEWORK] Saga logger initialized")
 
 	consumer := rabbitmq.New(
@@ -63,8 +84,26 @@ func NewWithoutHandler(cfg *config.Config) (*App, error) {
 		return nil, errors.New("config is nil")
 	}
 
+	// Initialize MinIO client for saga logger
+	var minioClient *minio.Client
+	if cfg.MinIO.Endpoint != "" && cfg.MinIO.AccessKey != "" && cfg.MinIO.SecretKey != "" {
+		var err error
+		minioClient, err = minio.New(cfg.MinIO.Endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(cfg.MinIO.AccessKey, cfg.MinIO.SecretKey, ""),
+			Secure: cfg.MinIO.UseSSL,
+		})
+		if err != nil {
+			log.Printf("⚠️ [FRAMEWORK] Failed to initialize MinIO client: %v", err)
+			minioClient = nil
+		} else {
+			log.Printf("✅ [FRAMEWORK] MinIO client initialized")
+		}
+	} else {
+		log.Printf("⚠️ [FRAMEWORK] MinIO not configured, saga logging disabled")
+	}
+
 	// Initialize Saga Logger
-	sagaLogger := saga.NewMinIOSagaLogger(nil, cfg.MinIO.Bucket)
+	sagaLogger := saga.NewMinIOSagaLogger(minioClient, cfg.MinIO.Bucket)
 	log.Printf("✅ [FRAMEWORK] Saga logger initialized")
 
 	consumer := rabbitmq.New(
