@@ -66,12 +66,36 @@ func (p *Pipeline) ExecuteInit(ctx context.Context, event framework_events.Event
 		return fmt.Errorf("processing failed: %w", err)
 	}
 
+	// Log processing result
+	if result != nil {
+		log.Printf("📦 [PIPELINE] Processing result: %d contents, metadata keys=%v",
+			len(result.Contents), getMapKeys(result.Metadata))
+
+		// Log each content item
+		for i, content := range result.Contents {
+			log.Printf("📦 [PIPELINE] Content %d: Type=%s, Order=%d, Data keys=%v",
+				i+1, content.Type, content.Order, getMapKeys(content.Data))
+
+			// Log text content if available
+			if text, ok := content.Data["text"].(string); ok {
+				log.Printf("📦 [PIPELINE] Content %d text (first 100): %s...",
+					i+1, text[:min(100, len(text))])
+			}
+		}
+	} else {
+		log.Printf("📦 [PIPELINE] Processing result is nil")
+	}
+
 	// Send message to communicator if contents are present
 	if result != nil && len(result.Contents) > 0 {
+		log.Printf("📤 [PIPELINE] Sending %d contents to communicator for chat %s",
+			len(result.Contents), event.ChatID)
 		err = p.sendToCommunicator(ctx, event, result.Contents)
 		if err != nil {
 			log.Printf("⚠️ [PIPELINE] Failed to send message to communicator: %v", err)
 		}
+	} else {
+		log.Printf("📦 [PIPELINE] No contents to send to communicator")
 	}
 
 	// Postprocessing phase
@@ -168,4 +192,23 @@ func CreatePostProcessingFunc(stage PostProcessingStage) PostProcessingFunc {
 			return fmt.Errorf("unsupported event type: %s", event.EventType)
 		}
 	}
+}
+
+// Helper functions
+func getMapKeys(m map[string]interface{}) []string {
+	if m == nil {
+		return []string{}
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
