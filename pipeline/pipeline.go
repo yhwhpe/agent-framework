@@ -55,7 +55,7 @@ func New(comm *communicator.Client, step PipelineStep) *Pipeline {
 
 // ExecuteInit executes the init pipeline for an event
 func (p *Pipeline) ExecuteInit(ctx context.Context, event framework_events.Event) error {
-	log.Printf("🔄 [PIPELINE] Executing INIT pipeline for event %s", event.ID)
+	log.Printf("🔄 [PIPELINE] Executing INIT pipeline for event %s", event.EventID)
 
 	// Processing phase
 	result, err := p.step.Processing(ctx, event)
@@ -79,13 +79,13 @@ func (p *Pipeline) ExecuteInit(ctx context.Context, event framework_events.Event
 		}
 	}
 
-	log.Printf("✅ [PIPELINE] INIT pipeline completed for event %s", event.ID)
+	log.Printf("✅ [PIPELINE] INIT pipeline completed for event %s", event.EventID)
 	return nil
 }
 
 // ExecuteContinue executes the continue pipeline for an event
 func (p *Pipeline) ExecuteContinue(ctx context.Context, event framework_events.Event) error {
-	log.Printf("🔄 [PIPELINE] Executing CONTINUE pipeline for event %s", event.ID)
+	log.Printf("🔄 [PIPELINE] Executing CONTINUE pipeline for event %s", event.EventID)
 
 	// Processing phase
 	result, err := p.step.Processing(ctx, event)
@@ -109,7 +109,7 @@ func (p *Pipeline) ExecuteContinue(ctx context.Context, event framework_events.E
 		}
 	}
 
-	log.Printf("✅ [PIPELINE] CONTINUE pipeline completed for event %s", event.ID)
+	log.Printf("✅ [PIPELINE] CONTINUE pipeline completed for event %s", event.EventID)
 	return nil
 }
 
@@ -129,11 +129,11 @@ func (p *Pipeline) sendToCommunicator(ctx context.Context, event framework_event
 		Contents: contents,
 		Metadata: map[string]interface{}{
 			"participantId": participantID,
-			"eventType":     event.Type,
+			"eventType":     event.EventType,
 			"source":        "profile-builder",
 		},
 		Source:    "profile-builder",
-		EventType: event.Type,
+		EventType: event.EventType,
 	}
 
 	return p.communicator.AddAgentMessage(ctx, messageInput)
@@ -142,13 +142,13 @@ func (p *Pipeline) sendToCommunicator(ctx context.Context, event framework_event
 // CreateProcessingFunc creates a processing function from a ProcessingStage
 func CreateProcessingFunc(stage ProcessingStage) ProcessingFunc {
 	return func(ctx context.Context, event framework_events.Event) (*ProcessingResult, error) {
-		switch event.Type {
+		switch event.EventType {
 		case "CLI_FLOW_INIT":
 			return stage.ProcessInit(ctx, event)
 		case "CLI_FLOW_CONTINUE":
 			return stage.ProcessContinue(ctx, event)
 		default:
-			return nil, fmt.Errorf("unsupported event type: %s", event.Type)
+			return nil, fmt.Errorf("unsupported event type: %s", event.EventType)
 		}
 	}
 }
@@ -156,13 +156,13 @@ func CreateProcessingFunc(stage ProcessingStage) ProcessingFunc {
 // CreatePostProcessingFunc creates a postprocessing function from a PostProcessingStage
 func CreatePostProcessingFunc(stage PostProcessingStage) PostProcessingFunc {
 	return func(ctx context.Context, event framework_events.Event, result *ProcessingResult) error {
-		switch event.Type {
+		switch event.EventType {
 		case "CLI_FLOW_INIT":
 			return stage.PostProcessInit(ctx, event, result)
 		case "CLI_FLOW_CONTINUE":
 			return stage.PostProcessContinue(ctx, event, result)
 		default:
-			return fmt.Errorf("unsupported event type: %s", event.Type)
+			return fmt.Errorf("unsupported event type: %s", event.EventType)
 		}
 	}
 }
