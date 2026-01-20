@@ -33,9 +33,6 @@ func New(cfg *config.Config, handler EventHandler) (*App, error) {
 	if cfg == nil {
 		return nil, errors.New("config is nil")
 	}
-	if handler == nil {
-		return nil, errors.New("event handler is required")
-	}
 
 	// Initialize Saga Logger
 	sagaLogger := saga.NewMinIOSagaLogger(nil, cfg.MinIO.Bucket)
@@ -58,6 +55,44 @@ func New(cfg *config.Config, handler EventHandler) (*App, error) {
 	}
 
 	return app, nil
+}
+
+// NewWithoutHandler создает приложение без handler (для получения saga logger)
+func NewWithoutHandler(cfg *config.Config) (*App, error) {
+	if cfg == nil {
+		return nil, errors.New("config is nil")
+	}
+
+	// Initialize Saga Logger
+	sagaLogger := saga.NewMinIOSagaLogger(nil, cfg.MinIO.Bucket)
+	log.Printf("✅ [FRAMEWORK] Saga logger initialized")
+
+	consumer := rabbitmq.New(
+		cfg.RabbitMQ.URL,
+		cfg.RabbitMQ.Exchange,
+		cfg.RabbitMQ.Queue,
+		cfg.RabbitMQ.Bindings,
+		cfg.RabbitMQ.Prefetch,
+		cfg.RabbitMQ.MaxRetries,
+	)
+
+	app := &App{
+		cfg:        cfg,
+		handler:    nil, // Will be set later
+		consumer:   consumer,
+		sagaLogger: sagaLogger,
+	}
+
+	return app, nil
+}
+
+// SetHandler устанавливает handler для приложения
+func (a *App) SetHandler(handler EventHandler) error {
+	if handler == nil {
+		return errors.New("handler cannot be nil")
+	}
+	a.handler = handler
+	return nil
 }
 
 // Run запускает приложение
