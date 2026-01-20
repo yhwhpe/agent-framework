@@ -133,7 +133,7 @@ func (p *Pipeline) sendToCommunicator(ctx context.Context, event framework_event
 			"source":        "profile-builder",
 		},
 		Source:    "profile-builder",
-		EventType: event.EventType,
+		EventType: string(event.EventType),
 	}
 
 	return p.communicator.AddAgentMessage(ctx, messageInput)
