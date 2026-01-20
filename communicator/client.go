@@ -7,8 +7,10 @@ import (
 
 // MessageContentItemInput represents input for message content
 type MessageContentItemInput struct {
-	Type    string `json:"type"`
-	Content string `json:"content"`
+	Type    string                 `json:"type"`
+	Content string                 `json:"content,omitempty"`
+	Order   int                    `json:"order,omitempty"`
+	Data    map[string]interface{} `json:"data,omitempty"`
 }
 
 // AgentMessageInput represents input for agent message

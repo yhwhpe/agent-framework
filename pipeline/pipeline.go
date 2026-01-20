@@ -23,12 +23,15 @@ type PostProcessingStage interface {
 
 // ProcessingResult contains the result of processing
 type ProcessingResult struct {
-	Contents []communicator.MessageContentItemInput `json:"contents,omitempty"`
-	Data     map[string]interface{}                 `json:"data,omitempty"`
+	Contents        []communicator.MessageContentItemInput `json:"contents,omitempty"`
+	Data            map[string]interface{}                 `json:"data,omitempty"`
+	Metadata        map[string]interface{}                 `json:"metadata,omitempty"`
+	PostProcessData map[string]interface{}                 `json:"postProcessData,omitempty"`
 }
 
 // PipelineStep defines a single step in the pipeline
 type PipelineStep struct {
+	Name           string
 	Processing     ProcessingFunc
 	PostProcessing PostProcessingFunc
 }
