@@ -2,7 +2,6 @@ package communicator
 
 import (
 	"context"
-	"fmt"
 	"log"
 )
 
