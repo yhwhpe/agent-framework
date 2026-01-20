@@ -118,14 +118,14 @@ func (p *Pipeline) ExecuteContinue(ctx context.Context, event framework_events.E
 
 // sendToCommunicator sends contents to the communicator
 func (p *Pipeline) sendToCommunicator(ctx context.Context, event framework_events.Event, contents []communicator.MessageContentItemInput) error {
-	// Extract chatID from event
-	chatID, ok := event.Metadata["chatId"].(string)
-	if !ok {
-		return fmt.Errorf("chatId not found in event metadata")
+	// Extract chatID from event (primary field, not metadata)
+	chatID := event.ChatID
+	if chatID == "" {
+		return fmt.Errorf("chatId not found in event")
 	}
 
 	// Extract participantId for metadata
-	participantID, _ := event.Metadata["participantId"].(string)
+	participantID := event.ParticipantID
 
 	messageInput := communicator.AgentMessageInput{
 		ChatID:   chatID,
