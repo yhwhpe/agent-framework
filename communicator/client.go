@@ -15,7 +15,7 @@ type MessageContentItemInput struct {
 
 // AgentMessageInput represents input for agent message
 type AgentMessageInput struct {
-	ChatID    string                     `json:"chatId"`
+	ChatID    string                    `json:"chatId"`
 	Contents  []MessageContentItemInput `json:"contents"`
 	Metadata  map[string]interface{}    `json:"metadata,omitempty"`
 	Source    string                    `json:"source"`

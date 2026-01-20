@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"framework/internal/events"
+	"github.com/yhwhpe/agent-framework/events"
 )
 
 // EventProcessor определяет интерфейс для обработки конкретных типов событий
