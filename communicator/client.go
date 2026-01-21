@@ -251,6 +251,52 @@ func (c *Client) AddAgentMessage(ctx context.Context, input AgentMessageInput) e
 	return nil
 }
 
+// GraphQL executes a GraphQL query or mutation
+func (c *Client) GraphQL(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
+	reqBody := map[string]interface{}{
+		"query":     query,
+		"variables": variables,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal GraphQL request: %w", err)
+	}
+
+	url := c.baseURL + "/graphql"
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP error status: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if err := json.Unmarshal(body, result); err != nil {
+		return fmt.Errorf("failed to parse GraphQL response: %w", err)
+	}
+
+	return nil
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"sync/atomic"
@@ -11,6 +12,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	"github.com/yhwhpe/agent-framework/communicator"
 	"github.com/yhwhpe/agent-framework/config"
 	"github.com/yhwhpe/agent-framework/events"
 	"github.com/yhwhpe/agent-framework/rabbitmq"
@@ -24,11 +26,12 @@ type EventHandler interface {
 
 // App представляет основное приложение агента
 type App struct {
-	cfg        *config.Config
-	handler    EventHandler
-	consumer   *rabbitmq.Consumer
-	sagaLogger saga.SagaLogger
-	ready      atomic.Bool
+	cfg           *config.Config
+	handler       EventHandler
+	consumer      *rabbitmq.Consumer
+	sagaLogger    saga.SagaLogger
+	communicator  *communicator.Client
+	ready         atomic.Bool
 }
 
 // New создает новое приложение
@@ -59,6 +62,15 @@ func New(cfg *config.Config, handler EventHandler) (*App, error) {
 	sagaLogger := saga.NewMinIOSagaLogger(minioClient, cfg.MinIO.Bucket)
 	log.Printf("✅ [FRAMEWORK] Saga logger initialized")
 
+	// Initialize Communicator client
+	var comm *communicator.Client
+	if cfg.Communicator.BaseURL != "" {
+		comm = communicator.New(cfg.Communicator.BaseURL, "")
+		log.Printf("✅ [FRAMEWORK] Communicator client initialized")
+	} else {
+		log.Printf("⚠️ [FRAMEWORK] Communicator not configured")
+	}
+
 	consumer := rabbitmq.New(
 		cfg.RabbitMQ.URL,
 		cfg.RabbitMQ.Exchange,
@@ -69,10 +81,11 @@ func New(cfg *config.Config, handler EventHandler) (*App, error) {
 	)
 
 	app := &App{
-		cfg:        cfg,
-		handler:    handler,
-		consumer:   consumer,
-		sagaLogger: sagaLogger,
+		cfg:          cfg,
+		handler:      handler,
+		consumer:     consumer,
+		sagaLogger:   sagaLogger,
+		communicator: comm,
 	}
 
 	return app, nil
@@ -106,6 +119,15 @@ func NewWithoutHandler(cfg *config.Config) (*App, error) {
 	sagaLogger := saga.NewMinIOSagaLogger(minioClient, cfg.MinIO.Bucket)
 	log.Printf("✅ [FRAMEWORK] Saga logger initialized")
 
+	// Initialize Communicator client
+	var comm *communicator.Client
+	if cfg.Communicator.BaseURL != "" {
+		comm = communicator.New(cfg.Communicator.BaseURL, "")
+		log.Printf("✅ [FRAMEWORK] Communicator client initialized")
+	} else {
+		log.Printf("⚠️ [FRAMEWORK] Communicator not configured")
+	}
+
 	consumer := rabbitmq.New(
 		cfg.RabbitMQ.URL,
 		cfg.RabbitMQ.Exchange,
@@ -116,10 +138,11 @@ func NewWithoutHandler(cfg *config.Config) (*App, error) {
 	)
 
 	app := &App{
-		cfg:        cfg,
-		handler:    nil, // Will be set later
-		consumer:   consumer,
-		sagaLogger: sagaLogger,
+		cfg:          cfg,
+		handler:      nil, // Will be set later
+		consumer:     consumer,
+		sagaLogger:   sagaLogger,
+		communicator: comm,
 	}
 
 	return app, nil
@@ -147,7 +170,33 @@ func (a *App) Run() error {
 	return a.consumer.Consume(ctx, func(hctx context.Context, ev events.Event) error {
 		ectx, cancel := context.WithTimeout(hctx, 30*time.Second)
 		defer cancel()
-		return a.handler.Handle(ectx, ev)
+
+		// Extract participant ID from event (assuming it's in metadata or can be derived from chatID)
+		participantID := ev.ChatID // Default to chatID, agents can override if needed
+
+		// Set AI responding status to PROCESSING for continue events
+		if ev.EventType == events.CliFlowContinue {
+			if err := a.setAIRespondingStatus(ectx, ev.ChatID, participantID, "PROCESSING"); err != nil {
+				log.Printf("[FRAMEWORK] ⚠️ Failed to set AI responding status to PROCESSING: %v", err)
+				// Continue processing anyway
+			}
+		}
+
+		// Process the event
+		err := a.handler.Handle(ectx, ev)
+
+		// Set AI responding status to DONE for continue events (success or failure)
+		if ev.EventType == events.CliFlowContinue {
+			status := "DONE"
+			if err != nil {
+				log.Printf("[FRAMEWORK] ⚠️ Event processing failed, but setting status to DONE: %v", err)
+			}
+			if setErr := a.setAIRespondingStatus(ectx, ev.ChatID, participantID, status); setErr != nil {
+				log.Printf("[FRAMEWORK] ⚠️ Failed to set AI responding status to DONE: %v", setErr)
+			}
+		}
+
+		return err
 	})
 }
 
@@ -165,6 +214,66 @@ func (a *App) Router() http.Handler {
 // GetSagaLogger возвращает логгер саги
 func (a *App) GetSagaLogger() saga.SagaLogger {
 	return a.sagaLogger
+}
+
+// setAIRespondingStatus отправляет статус AI responding в communicator
+func (a *App) setAIRespondingStatus(ctx context.Context, chatID, participantID, status string) error {
+	if a.communicator == nil {
+		log.Printf("[FRAMEWORK] ⚠️ Communicator client not available, skipping AI responding status")
+		return nil
+	}
+
+	// Convert status string to enum value
+	var aiStatus string
+	switch status {
+	case "processing", "PROCESSING":
+		aiStatus = "PROCESSING"
+	case "done", "DONE":
+		aiStatus = "DONE"
+	default:
+		return errors.New("invalid AI responding status: " + status)
+	}
+
+	log.Printf("[FRAMEWORK] 🤖 Setting AI responding status to %s for chat %s, participant %s", aiStatus, chatID, participantID)
+
+	// Send status via GraphQL mutation
+	query := `
+		mutation SetAiRespondingStatus($input: SetAiRespondingStatusInput!) {
+			setAiRespondingStatus(input: $input) {
+				success
+				error
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"chatId":       chatID,
+			"participantId": participantID,
+			"status":       aiStatus,
+		},
+	}
+
+	var response struct {
+		Data struct {
+			SetAiRespondingStatus struct {
+				Success bool   `json:"success"`
+				Error   string `json:"error"`
+			} `json:"setAiRespondingStatus"`
+		} `json:"data"`
+	}
+
+	err := a.communicator.GraphQL(ctx, query, variables, &response)
+	if err != nil {
+		return fmt.Errorf("failed to set AI responding status: %w", err)
+	}
+
+	if !response.Data.SetAiRespondingStatus.Success {
+		return fmt.Errorf("failed to set AI responding status: %s", response.Data.SetAiRespondingStatus.Error)
+	}
+
+	log.Printf("[FRAMEWORK] ✅ Successfully set AI responding status to %s", aiStatus)
+	return nil
 }
 
 func (a *App) readyz(w http.ResponseWriter, _ *http.Request) {

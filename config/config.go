@@ -84,7 +84,7 @@ func Load() (*Config, error) {
 	prefetch := intFromEnv("RABBITMQ_PREFETCH", 1)
 	maxRetries := intFromEnv("RABBITMQ_MAX_RETRIES", 3)
 
-
+	
 	llmTimeoutStr := getenvDefault("LLM_TIMEOUT", "60s")
 	llmTimeout, err := time.ParseDuration(llmTimeoutStr)
 	if err != nil {

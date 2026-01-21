@@ -312,7 +312,7 @@ func (c *Consumer) Consume(ctx context.Context, handler Handler) error {
 				log.Printf("[RABBITMQ] ⚙️  Handler processing completed in %v: eventId=%s, success=%v",
 					handlerDuration, ev.EventID, err == nil)
 
-				if err := handler(ctx, ev); err != nil {
+				if err != nil {
 					rc := retryCount(d.Headers)
 					log.Printf("[RABBITMQ] ❌ Handler failed: eventId=%s, retry_count=%d, error=%v", ev.EventID, rc, err)
 
