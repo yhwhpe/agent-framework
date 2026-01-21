@@ -171,8 +171,8 @@ func (a *App) Run() error {
 		ectx, cancel := context.WithTimeout(hctx, 30*time.Second)
 		defer cancel()
 
-		// Extract participant ID from event (assuming it's in metadata or can be derived from chatID)
-		participantID := ev.ChatID // Default to chatID, agents can override if needed
+		// Extract participant ID from event
+		participantID := ev.ParticipantID
 
 		// Set AI responding status to PROCESSING for continue events
 		if ev.EventType == events.CliFlowContinue {
