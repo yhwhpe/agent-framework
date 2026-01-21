@@ -26,12 +26,12 @@ type EventHandler interface {
 
 // App представляет основное приложение агента
 type App struct {
-	cfg           *config.Config
-	handler       EventHandler
-	consumer      *rabbitmq.Consumer
-	sagaLogger    saga.SagaLogger
-	communicator  *communicator.Client
-	ready         atomic.Bool
+	cfg          *config.Config
+	handler      EventHandler
+	consumer     *rabbitmq.Consumer
+	sagaLogger   saga.SagaLogger
+	communicator *communicator.Client
+	ready        atomic.Bool
 }
 
 // New создает новое приложение
@@ -248,9 +248,9 @@ func (a *App) setAIRespondingStatus(ctx context.Context, chatID, participantID, 
 
 	variables := map[string]interface{}{
 		"input": map[string]interface{}{
-			"chatId":       chatID,
+			"chatId":        chatID,
 			"participantId": participantID,
-			"status":       aiStatus,
+			"status":        aiStatus,
 		},
 	}
 
