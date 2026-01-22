@@ -17,8 +17,10 @@ type Event struct {
 	FlowID        string         `json:"flowId"`
 	ChatID        string         `json:"chatId"`
 	ParticipantID string         `json:"participantId"`
-	AccountID     string         `json:"accountId"`          // account ID from cli-flow-service
+	AccountID     string         `json:"accountId"`         // account ID from cli-flow-service
 	Message       *string        `json:"message,omitempty"` // required for CONTINUE
+	ActionType    string         `json:"actionType,omitempty"`
+	ActionData    map[string]any `json:"actionData,omitempty"`
 	Data          map[string]any `json:"data,omitempty"`
 	Metadata      map[string]any `json:"metadata,omitempty"` // communicator metadata from user message
 }

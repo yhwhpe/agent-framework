@@ -36,6 +36,32 @@ func (a *MyAgent) Handle(ctx context.Context, event events.Event) error {
     return nil
 }
 
+func (a *MyAgent) handleContinue(ctx context.Context, event events.Event) error {
+    // Handle message-based continue events
+    if event.Message != nil {
+        return a.handleMessage(ctx, event)
+    }
+
+    // Handle action-based continue events
+    if event.ActionType != "" {
+        return a.handleAction(ctx, event)
+    }
+
+    return nil
+}
+
+func (a *MyAgent) handleAction(ctx context.Context, event events.Event) error {
+    switch event.ActionType {
+    case "upload_avatar":
+        url := event.ActionData["url"].(string)
+        return a.processAvatarUpload(ctx, event.ChatID, url)
+    case "submit_form":
+        formData := event.ActionData["form"].(map[string]any)
+        return a.processFormSubmission(ctx, event.ChatID, formData)
+    }
+    return nil
+}
+
 func main() {
     cfg, _ := config.Load()
     handler := &MyAgent{}
