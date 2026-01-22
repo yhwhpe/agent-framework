@@ -250,6 +250,10 @@ func (l *MinIOSagaLogger) parseEvent(jsonLine string) (EventUnion, error) {
 		event = &LLMResponseEvent{}
 	case "MESSAGE_ADDED":
 		event = &MessageAddedEvent{}
+	case "LLM_QUESTION":
+		event = &MessageAddedEvent{}
+	case "LLM_RAW_RESPONSE":
+		event = &MessageAddedEvent{}
 	case "COLLECTED_DATA":
 		event = &CollectedDataEvent{}
 	case "MESA_ANALYSIS":
