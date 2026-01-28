@@ -41,7 +41,6 @@ type BotConfig struct {
 	Name             string
 	EventStream      string
 	StreamingEnabled bool
-	ProfileFormType  string
 }
 
 type AximaConfig struct {
@@ -113,7 +112,6 @@ func Load() (*Config, error) {
 			Name:             getenvDefault("BOT_NAME", "Agent Bot"),
 			EventStream:      getenvDefault("BOT_EVENT_STREAM", "profile-builder-events"),
 			StreamingEnabled: boolFromEnv("BOT_STREAMING_ENABLED", true),
-			ProfileFormType:  getenvDefault("PROFILE_FORM_TYPE", "user"),
 		},
 		Axima: AximaConfig{
 			URL:     os.Getenv("AXIMA_URL"),
