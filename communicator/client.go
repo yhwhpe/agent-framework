@@ -314,3 +314,133 @@ func getMapKeys(m map[string]interface{}) []string {
 	}
 	return keys
 }
+
+// BotCheckResponse represents the response from checkBot query
+type BotCheckResponse struct {
+	Success bool   `json:"success"`
+	Exists  bool   `json:"exists"`
+	ID      string `json:"id,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// RegisterBotInput represents input for bot registration
+type RegisterBotInput struct {
+	ID               string                 `json:"id,omitempty"`
+	Key              string                 `json:"key"`
+	Address          string                 `json:"address,omitempty"`
+	Name             string                 `json:"name"`
+	Settings         map[string]interface{} `json:"settings,omitempty"`
+	IgnoreSummaryEvents bool                `json:"ignoreSummaryEvents,omitempty"`
+	EventStream      string                 `json:"eventStream,omitempty"`
+	StreamingEnabled bool                   `json:"streamingEnabled,omitempty"`
+}
+
+// CheckBot checks if a bot with the given key exists
+func (c *Client) CheckBot(ctx context.Context, key string) (*BotCheckResponse, error) {
+	log.Printf("🔍 [COMMUNICATOR] Checking bot with key: %s", key)
+
+	query := `
+		query CheckBot($key: String!) {
+			checkBot(key: $key) {
+				success
+				exists
+				id
+				error
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"key": key,
+	}
+
+	var response struct {
+		Data struct {
+			CheckBot BotCheckResponse `json:"checkBot"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors,omitempty"`
+	}
+
+	if err := c.GraphQL(ctx, query, variables, &response); err != nil {
+		log.Printf("❌ [COMMUNICATOR] Failed to check bot: %v", err)
+		return nil, fmt.Errorf("failed to check bot: %w", err)
+	}
+
+	if len(response.Errors) > 0 {
+		log.Printf("❌ [COMMUNICATOR] GraphQL errors: %v", response.Errors)
+		return nil, fmt.Errorf("GraphQL errors: %v", response.Errors)
+	}
+
+	if !response.Data.CheckBot.Success {
+		log.Printf("❌ [COMMUNICATOR] Bot check failed: %s", response.Data.CheckBot.Error)
+		return &response.Data.CheckBot, fmt.Errorf("bot check failed: %s", response.Data.CheckBot.Error)
+	}
+
+	log.Printf("✅ [COMMUNICATOR] Bot check result: exists=%v, id=%s",
+		response.Data.CheckBot.Exists, response.Data.CheckBot.ID)
+
+	return &response.Data.CheckBot, nil
+}
+
+// RegisterBot registers a new bot
+func (c *Client) RegisterBot(ctx context.Context, input RegisterBotInput) (string, error) {
+	log.Printf("🤖 [COMMUNICATOR] Registering bot: key=%s, name=%s", input.Key, input.Name)
+
+	query := `
+		mutation RegisterBot($input: RegisterBotInput!) {
+			registerBot(input: $input) {
+				success
+				bot {
+					id
+					key
+					name
+				}
+				error
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"input": input,
+	}
+
+	var response struct {
+		Data struct {
+			RegisterBot struct {
+				Success bool `json:"success"`
+				Bot     struct {
+					ID   string `json:"id"`
+					Key  string `json:"key"`
+					Name string `json:"name"`
+				} `json:"bot,omitempty"`
+				Error string `json:"error,omitempty"`
+			} `json:"registerBot"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors,omitempty"`
+	}
+
+	if err := c.GraphQL(ctx, query, variables, &response); err != nil {
+		log.Printf("❌ [COMMUNICATOR] Failed to register bot: %v", err)
+		return "", fmt.Errorf("failed to register bot: %w", err)
+	}
+
+	if len(response.Errors) > 0 {
+		log.Printf("❌ [COMMUNICATOR] GraphQL errors: %v", response.Errors)
+		return "", fmt.Errorf("GraphQL errors: %v", response.Errors)
+	}
+
+	if !response.Data.RegisterBot.Success {
+		log.Printf("❌ [COMMUNICATOR] Bot registration failed: %s", response.Data.RegisterBot.Error)
+		return "", fmt.Errorf("bot registration failed: %s", response.Data.RegisterBot.Error)
+	}
+
+	botID := response.Data.RegisterBot.Bot.ID
+	log.Printf("✅ [COMMUNICATOR] Bot registered successfully: id=%s, key=%s, name=%s",
+		botID, response.Data.RegisterBot.Bot.Key, response.Data.RegisterBot.Bot.Name)
+
+	return botID, nil
+}
