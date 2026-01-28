@@ -34,6 +34,45 @@ type App struct {
 	ready        atomic.Bool
 }
 
+// ensureBotRegistered checks if bot exists and registers it if needed
+func ensureBotRegistered(comm *communicator.Client, cfg *config.Config) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	log.Printf("🔍 [FRAMEWORK] Checking bot registration with key: %s", cfg.Bot.Key)
+
+	// Check if bot exists
+	checkResp, err := comm.CheckBot(ctx, cfg.Bot.Key)
+	if err != nil {
+		log.Printf("❌ [FRAMEWORK] Failed to check bot: %v", err)
+		return err
+	}
+
+	if checkResp.Exists {
+		log.Printf("✅ [FRAMEWORK] Bot already registered: id=%s", checkResp.ID)
+		return nil
+	}
+
+	log.Printf("📝 [FRAMEWORK] Bot not found, registering new bot...")
+
+	// Register bot
+	input := communicator.RegisterBotInput{
+		Key:              cfg.Bot.Key,
+		Name:             cfg.Bot.Name,
+		EventStream:      cfg.Bot.EventStream,
+		StreamingEnabled: cfg.Bot.StreamingEnabled,
+	}
+
+	botID, err := comm.RegisterBot(ctx, input)
+	if err != nil {
+		log.Printf("❌ [FRAMEWORK] Failed to register bot: %v", err)
+		return err
+	}
+
+	log.Printf("✅ [FRAMEWORK] Bot registered successfully: id=%s", botID)
+	return nil
+}
+
 // New создает новое приложение
 func New(cfg *config.Config, handler EventHandler) (*App, error) {
 	if cfg == nil {
@@ -67,6 +106,11 @@ func New(cfg *config.Config, handler EventHandler) (*App, error) {
 	if cfg.Communicator.BaseURL != "" {
 		comm = communicator.New(cfg.Communicator.BaseURL, "")
 		log.Printf("✅ [FRAMEWORK] Communicator client initialized")
+
+		// Ensure bot is registered
+		if err := ensureBotRegistered(comm, cfg); err != nil {
+			return nil, fmt.Errorf("failed to ensure bot registration: %w", err)
+		}
 	} else {
 		log.Printf("⚠️ [FRAMEWORK] Communicator not configured")
 	}
@@ -124,6 +168,11 @@ func NewWithoutHandler(cfg *config.Config) (*App, error) {
 	if cfg.Communicator.BaseURL != "" {
 		comm = communicator.New(cfg.Communicator.BaseURL, "")
 		log.Printf("✅ [FRAMEWORK] Communicator client initialized")
+
+		// Ensure bot is registered
+		if err := ensureBotRegistered(comm, cfg); err != nil {
+			return nil, fmt.Errorf("failed to ensure bot registration: %w", err)
+		}
 	} else {
 		log.Printf("⚠️ [FRAMEWORK] Communicator not configured")
 	}

@@ -38,6 +38,7 @@ type RabbitMQConfig struct {
 
 type BotConfig struct {
 	Key              string
+	Name             string
 	EventStream      string
 	StreamingEnabled bool
 	ProfileFormType  string
@@ -109,6 +110,7 @@ func Load() (*Config, error) {
 		},
 		Bot: BotConfig{
 			Key:              getenvDefault("BOT_KEY", "profile-builder"),
+			Name:             getenvDefault("BOT_NAME", "Agent Bot"),
 			EventStream:      getenvDefault("BOT_EVENT_STREAM", "profile-builder-events"),
 			StreamingEnabled: boolFromEnv("BOT_STREAMING_ENABLED", true),
 			ProfileFormType:  getenvDefault("PROFILE_FORM_TYPE", "user"),
