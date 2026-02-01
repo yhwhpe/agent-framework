@@ -38,7 +38,7 @@ func NewMinIOSagaLogger(minioClient *minio.Client, bucketName string) *MinIOSaga
 
 // getObjectName возвращает путь к файлу саги в MinIO
 func (l *MinIOSagaLogger) getObjectName(accountID, chatID string) string {
-	return fmt.Sprintf("%s/%s/profile-builder-saga.log", accountID, chatID)
+	return fmt.Sprintf("%s/%s/saga.log", accountID, chatID)
 }
 
 // LogEvent логирует событие в сагу
