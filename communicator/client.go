@@ -39,7 +39,6 @@ type SendChatActionInput struct {
 // SendChatActionResponse represents the response from sendChatAction mutation
 type SendChatActionResponse struct {
 	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
 
@@ -71,7 +70,6 @@ func (c *Client) SendChatAction(ctx context.Context, input SendChatActionInput) 
         mutation SendChatAction($input: SendChatActionInput!) {
             sendChatAction(input: $input) {
                 success
-                message
                 error
             }
         }
@@ -180,9 +178,6 @@ func (c *Client) SendChatAction(ctx context.Context, input SendChatActionInput) 
 
 	// Log success
 	log.Printf("✅ [COMMUNICATOR] Chat action sent successfully!")
-	if response.Data.SendChatAction.Message != "" {
-		log.Printf("✅ [COMMUNICATOR] Response message: %s", response.Data.SendChatAction.Message)
-	}
 
 	return nil
 }
