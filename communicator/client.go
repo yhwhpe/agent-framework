@@ -28,6 +28,165 @@ type AgentMessageInput struct {
 	EventType string                    `json:"eventType"`
 }
 
+// SendChatActionInput represents input for sending chat action
+type SendChatActionInput struct {
+	ChatID        string                 `json:"chatId"`
+	ParticipantID string                 `json:"participantId"`
+	Action        string                 `json:"action"`
+	Data          map[string]interface{} `json:"data,omitempty"`
+}
+
+// SendChatActionResponse represents the response from sendChatAction mutation
+type SendChatActionResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// SendChatAction sends a chat action event (for client-side actions like redirect)
+func (c *Client) SendChatAction(ctx context.Context, input SendChatActionInput) error {
+	log.Printf("🎬 [COMMUNICATOR] Sending chat action: chatId=%s, participantId=%s, action=%s",
+		input.ChatID, input.ParticipantID, input.Action)
+
+	// Validate input
+	if input.ChatID == "" {
+		log.Printf("❌ [COMMUNICATOR] Error: ChatID is empty")
+		return fmt.Errorf("chat ID cannot be empty")
+	}
+
+	if input.ParticipantID == "" {
+		log.Printf("❌ [COMMUNICATOR] Error: ParticipantID is empty")
+		return fmt.Errorf("participant ID cannot be empty")
+	}
+
+	if input.Action == "" {
+		log.Printf("❌ [COMMUNICATOR] Error: Action is empty")
+		return fmt.Errorf("action cannot be empty")
+	}
+
+	log.Printf("🎬 [COMMUNICATOR] Action data: %v", input.Data)
+
+	// Prepare GraphQL mutation
+	query := `
+        mutation SendChatAction($input: SendChatActionInput!) {
+            sendChatAction(input: $input) {
+                success
+                message
+                error
+            }
+        }
+    `
+
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"chatId":        input.ChatID,
+			"participantId": input.ParticipantID,
+			"action":        input.Action,
+			"data":          input.Data,
+		},
+	}
+
+	// Create HTTP request
+	reqBody := map[string]interface{}{
+		"query":     query,
+		"variables": variables,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		log.Printf("❌ [COMMUNICATOR] Error marshaling GraphQL request: %v", err)
+		return fmt.Errorf("failed to marshal GraphQL request: %w", err)
+	}
+
+	url := c.baseURL + "/graphql"
+	log.Printf("🎬 [COMMUNICATOR] Making HTTP POST to %s", url)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Printf("❌ [COMMUNICATOR] Error creating HTTP request: %v", err)
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+		log.Printf("🎬 [COMMUNICATOR] Using API key for authorization")
+	} else {
+		log.Printf("⚠️ [COMMUNICATOR] Warning: No API key provided")
+	}
+
+	// Send request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("❌ [COMMUNICATOR] HTTP request failed: %v", err)
+		return fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	log.Printf("📥 [COMMUNICATOR] HTTP response status: %s", resp.Status)
+
+	// Check HTTP status
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		log.Printf("❌ [COMMUNICATOR] HTTP error status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return fmt.Errorf("HTTP error status: %d", resp.StatusCode)
+	}
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("❌ [COMMUNICATOR] Error reading response body: %v", err)
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	log.Printf("📥 [COMMUNICATOR] Response body size: %d bytes", len(body))
+
+	// Parse response
+	var response struct {
+		Data struct {
+			SendChatAction SendChatActionResponse `json:"sendChatAction"`
+		} `json:"data,omitempty"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors,omitempty"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		log.Printf("❌ [COMMUNICATOR] Error parsing JSON response: %v", err)
+		log.Printf("❌ [COMMUNICATOR] Raw response that failed to parse: %s", string(body))
+		return fmt.Errorf("failed to parse GraphQL response: %w", err)
+	}
+
+	// Check for GraphQL errors
+	if len(response.Errors) > 0 {
+		log.Printf("❌ [COMMUNICATOR] GraphQL validation/parsing errors: %v", response.Errors)
+		for i, gqlErr := range response.Errors {
+			log.Printf("❌ [COMMUNICATOR] GraphQL error %d: %s", i+1, gqlErr.Message)
+		}
+		return fmt.Errorf("GraphQL errors: %v", response.Errors)
+	}
+
+	// Check for application errors
+	if !response.Data.SendChatAction.Success {
+		errorMsg := response.Data.SendChatAction.Error
+		if errorMsg == "" {
+			errorMsg = "unknown application error"
+		}
+		log.Printf("❌ [COMMUNICATOR] Application error from sendChatAction: %s", errorMsg)
+		log.Printf("❌ [COMMUNICATOR] Full response data: %+v", response.Data.SendChatAction)
+		return fmt.Errorf("sendChatAction error: %s", errorMsg)
+	}
+
+	// Log success
+	log.Printf("✅ [COMMUNICATOR] Chat action sent successfully!")
+	if response.Data.SendChatAction.Message != "" {
+		log.Printf("✅ [COMMUNICATOR] Response message: %s", response.Data.SendChatAction.Message)
+	}
+
+	return nil
+}
+
 // Client represents the communicator client
 type Client struct {
 	baseURL string
@@ -297,13 +456,6 @@ func (c *Client) GraphQL(ctx context.Context, query string, variables map[string
 	return nil
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func getMapKeys(m map[string]interface{}) []string {
 	if m == nil {
 		return []string{}
@@ -325,14 +477,14 @@ type BotCheckResponse struct {
 
 // RegisterBotInput represents input for bot registration
 type RegisterBotInput struct {
-	ID               string                 `json:"id,omitempty"`
-	Key              string                 `json:"key"`
-	Address          string                 `json:"address,omitempty"`
-	Name             string                 `json:"name"`
-	Settings         map[string]interface{} `json:"settings,omitempty"`
-	IgnoreSummaryEvents bool                `json:"ignoreSummaryEvents,omitempty"`
-	EventStream      string                 `json:"eventStream,omitempty"`
-	StreamingEnabled bool                   `json:"streamingEnabled,omitempty"`
+	ID                  string                 `json:"id,omitempty"`
+	Key                 string                 `json:"key"`
+	Address             string                 `json:"address,omitempty"`
+	Name                string                 `json:"name"`
+	Settings            map[string]interface{} `json:"settings,omitempty"`
+	IgnoreSummaryEvents bool                   `json:"ignoreSummaryEvents,omitempty"`
+	EventStream         string                 `json:"eventStream,omitempty"`
+	StreamingEnabled    bool                   `json:"streamingEnabled,omitempty"`
 }
 
 // CheckBot checks if a bot with the given key exists
